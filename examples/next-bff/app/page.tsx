@@ -14,19 +14,8 @@ export default function HomePage() {
         apiBase="/api/q9-chat"
         title="Поддержка"
         welcomeMessage="Здравствуйте! Чем можем помочь?"
-        showPreChatForm
         primaryColor="#2563eb"
         locale="ru"
-        faqItems={[
-          {
-            question: "Как связаться с поддержкой?",
-            answer: "Оставьте сообщение — мы ответим в рабочее время.",
-          },
-          {
-            question: "Где посмотреть статус заказа?",
-            answer: "Напишите номер заказа в чат или на email из письма.",
-          },
-        ]}
       />
     </main>
   );

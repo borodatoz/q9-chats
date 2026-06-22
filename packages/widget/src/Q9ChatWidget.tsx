@@ -1,7 +1,7 @@
 "use client";
 
 import {
-  getOrCreateVisitorId,
+  resolveWebChatVisitorId,
   WebChatClient,
   type WebChatMessage,
   type WebChatSession,
@@ -13,7 +13,6 @@ import {
   useMemo,
   useRef,
   useState,
-  type FormEvent,
 } from "react";
 
 import { resolveWebChatCopy } from "./i18n";
@@ -63,13 +62,14 @@ export function Q9ChatWidget({
   locale = "ru",
   pollIntervalMs = 4000,
   statusPollIntervalMs = 2500,
-  showPreChatForm = false,
-  faqItems = [],
-  forceOffline = false,
+  // showPreChatForm = false,
+  // faqItems = [],
+  // forceOffline = false,
+  visitorId: visitorIdProp,
 }: Q9ChatWidgetProps) {
   const t = resolveWebChatCopy(locale);
   const client = useMemo(() => new WebChatClient({ apiBase }), [apiBase]);
-  const visitorIdRef = useRef<string | null>(null);
+  const visitorIdRef = useRef<string | null>(visitorIdProp ?? null);
   const typingStopRef = useRef<number | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
@@ -79,31 +79,37 @@ export function Q9ChatWidget({
   const [chatStatus, setChatStatus] = useState<WebChatStatus | null>(null);
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(false);
-  const [preChatDone, setPreChatDone] = useState(!showPreChatForm);
-  const [preChatName, setPreChatName] = useState("");
-  const [preChatPhone, setPreChatPhone] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [lastReadAt, setLastReadAt] = useState<string | null>(null);
-  const [offlineSent, setOfflineSent] = useState(false);
-  const [offlineName, setOfflineName] = useState("");
-  const [offlineEmail, setOfflineEmail] = useState("");
-  const [offlinePhone, setOfflinePhone] = useState("");
-  const [offlineText, setOfflineText] = useState("");
-  const [expandedFaq, setExpandedFaq] = useState<number | null>(null);
+
+  // Pre-chat / offline forms disabled — chat is always open for messages.
+  // const [preChatDone, setPreChatDone] = useState(!showPreChatForm);
+  // const [preChatName, setPreChatName] = useState("");
+  // const [preChatPhone, setPreChatPhone] = useState("");
+  // const [offlineSent, setOfflineSent] = useState(false);
+  // const [offlineName, setOfflineName] = useState("");
+  // const [offlineEmail, setOfflineEmail] = useState("");
+  // const [offlinePhone, setOfflinePhone] = useState("");
+  // const [offlineText, setOfflineText] = useState("");
+  // const [expandedFaq, setExpandedFaq] = useState<number | null>(null);
 
   const lastMessageAt = messages.at(-1)?.created_at;
-  const operatorsOnline = forceOffline
-    ? false
-    : (chatStatus?.operators_online ?? true);
   const operatorTyping = chatStatus?.operator_typing === true;
   const unreadCount = open
     ? 0
     : countUnreadFromThem(messages, session, lastReadAt);
 
+  const resolveVisitorId = useCallback(async () => {
+    if (visitorIdProp) return visitorIdProp;
+    if (visitorIdRef.current) return visitorIdRef.current;
+    const visitorId = await resolveWebChatVisitorId(apiBase);
+    visitorIdRef.current = visitorId;
+    return visitorId;
+  }, [apiBase, visitorIdProp]);
+
   const ensureSession = useCallback(async () => {
     if (session) return session;
-    const visitorId = visitorIdRef.current ?? getOrCreateVisitorId();
-    visitorIdRef.current = visitorId;
+    const visitorId = await resolveVisitorId();
 
     setLoading(true);
     try {
@@ -128,7 +134,7 @@ export function Q9ChatWidget({
     } finally {
       setLoading(false);
     }
-  }, [client, session]);
+  }, [client, resolveVisitorId, session]);
 
   useEffect(() => {
     void ensureSession().catch(() => {});
@@ -162,13 +168,13 @@ export function Q9ChatWidget({
   }, [lastMessageAt, pollIntervalMs, pollNewMessages, session]);
 
   useEffect(() => {
-    if (!open || !session || !preChatDone) return;
+    if (!open || !session) return;
     void refreshStatus();
     const timer = window.setInterval(() => {
       void refreshStatus();
     }, statusPollIntervalMs);
     return () => window.clearInterval(timer);
-  }, [open, preChatDone, refreshStatus, session, statusPollIntervalMs]);
+  }, [open, refreshStatus, session, statusPollIntervalMs]);
 
   useEffect(() => {
     if (open && messages.length > 0) {
@@ -182,10 +188,10 @@ export function Q9ChatWidget({
 
   const notifyTyping = useCallback(
     (isTyping: boolean) => {
-      if (!session || !operatorsOnline) return;
+      if (!session) return;
       void client.setTyping(session, isTyping).catch(() => {});
     },
-    [client, operatorsOnline, session],
+    [client, session],
   );
 
   const handleOpen = async () => {
@@ -202,17 +208,17 @@ export function Q9ChatWidget({
     void notifyTyping(false);
   };
 
-  const handlePreChat = async (event: FormEvent) => {
-    event.preventDefault();
-    const activeSession = await ensureSession();
-    if (preChatName.trim() || preChatPhone.trim()) {
-      await client.updateVisitor(activeSession, {
-        first_name: preChatName.trim() || undefined,
-        phone: preChatPhone.trim() || undefined,
-      });
-    }
-    setPreChatDone(true);
-  };
+  // const handlePreChat = async (event: FormEvent) => {
+  //   event.preventDefault();
+  //   const activeSession = await ensureSession();
+  //   if (preChatName.trim() || preChatPhone.trim()) {
+  //     await client.updateVisitor(activeSession, {
+  //       first_name: preChatName.trim() || undefined,
+  //       phone: preChatPhone.trim() || undefined,
+  //     });
+  //   }
+  //   setPreChatDone(true);
+  // };
 
   const handleSend = async () => {
     const trimmed = text.trim();
@@ -230,27 +236,26 @@ export function Q9ChatWidget({
     }
   };
 
-  const handleOfflineSubmit = async (event: FormEvent) => {
-    event.preventDefault();
-    const trimmed = offlineText.trim();
-    if (!trimmed) return;
-
-    setError(null);
-    const activeSession = session ?? (await ensureSession());
-    try {
-      await client.updateVisitor(activeSession, {
-        first_name: offlineName.trim() || undefined,
-        phone: offlinePhone.trim() || undefined,
-        email: offlineEmail.trim() || undefined,
-      });
-      const sent = await client.sendMessage(activeSession, trimmed);
-      setMessages((prev) => [...prev, sent]);
-      setOfflineSent(true);
-      setOfflineText("");
-    } catch {
-      setError(t.error);
-    }
-  };
+  // const handleOfflineSubmit = async (event: FormEvent) => {
+  //   event.preventDefault();
+  //   const trimmed = offlineText.trim();
+  //   if (!trimmed) return;
+  //   setError(null);
+  //   const activeSession = session ?? (await ensureSession());
+  //   try {
+  //     await client.updateVisitor(activeSession, {
+  //       first_name: offlineName.trim() || undefined,
+  //       phone: offlinePhone.trim() || undefined,
+  //       email: offlineEmail.trim() || undefined,
+  //     });
+  //     const sent = await client.sendMessage(activeSession, trimmed);
+  //     setMessages((prev) => [...prev, sent]);
+  //     setOfflineSent(true);
+  //     setOfflineText("");
+  //   } catch {
+  //     setError(t.error);
+  //   }
+  // };
 
   const handleTextChange = (value: string) => {
     setText(value);
@@ -276,9 +281,7 @@ export function Q9ChatWidget({
       <button
         type="button"
         className="q9-chat-widget__launcher"
-        aria-label={
-          badgeLabel ? t.unreadAria(unreadCount) : t.launcher
-        }
+        aria-label={badgeLabel ? t.unreadAria(unreadCount) : t.launcher}
         onClick={() => (open ? handleClose() : void handleOpen())}
       >
         <span className="q9-chat-widget__launcher-icon" aria-hidden>
@@ -307,175 +310,75 @@ export function Q9ChatWidget({
             </button>
           </div>
 
-          {!preChatDone ? (
-            <form
-              className="q9-chat-widget__prechat"
-              onSubmit={(e) => void handlePreChat(e)}
+          {loading ? (
+            <div className="q9-chat-widget__status">{t.loading}</div>
+          ) : null}
+
+          <div className="q9-chat-widget__messages">
+            {welcomeMessage ? (
+              <div className="q9-chat-widget__welcome">{welcomeMessage}</div>
+            ) : null}
+            {messages.map((message) => (
+              <div
+                key={message.id}
+                className={
+                  isMine(message, session)
+                    ? "q9-chat-widget__message q9-chat-widget__message--mine"
+                    : "q9-chat-widget__message q9-chat-widget__message--theirs"
+                }
+              >
+                {message.text}
+              </div>
+            ))}
+            {operatorTyping ? (
+              <div className="q9-chat-widget__typing">{t.operatorTyping}</div>
+            ) : null}
+            <div ref={messagesEndRef} />
+          </div>
+
+          {error ? (
+            <div className="q9-chat-widget__status">{error}</div>
+          ) : null}
+
+          <div className="q9-chat-widget__composer">
+            <textarea
+              className="q9-chat-widget__input"
+              value={text}
+              placeholder={t.placeholder}
+              rows={1}
+              onChange={(e) => handleTextChange(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  void handleSend();
+                }
+              }}
+            />
+            <button
+              type="button"
+              className="q9-chat-widget__send"
+              disabled={!text.trim() || loading}
+              onClick={() => void handleSend()}
             >
-              <strong>{t.prechatTitle}</strong>
-              <label className="q9-chat-widget__field">
-                {t.name}
-                <input
-                  value={preChatName}
-                  onChange={(e) => setPreChatName(e.target.value)}
-                  autoComplete="name"
-                />
-              </label>
-              <label className="q9-chat-widget__field">
-                {t.phone}
-                <input
-                  value={preChatPhone}
-                  onChange={(e) => setPreChatPhone(e.target.value)}
-                  autoComplete="tel"
-                />
-              </label>
-              <button type="submit" className="q9-chat-widget__send">
-                {t.start}
-              </button>
+              {t.send}
+            </button>
+          </div>
+
+          {/*
+          Pre-chat form (name / phone) — disabled for now.
+
+          {!preChatDone ? (
+            <form className="q9-chat-widget__prechat" onSubmit={...}>
+              ...
             </form>
-          ) : (
-            <>
-              {loading ? (
-                <div className="q9-chat-widget__status">{t.loading}</div>
-              ) : null}
+          ) : null}
 
-              {!operatorsOnline ? (
-                <div className="q9-chat-widget__offline">
-                  <strong>{t.offlineTitle}</strong>
-                  <p>{t.offlineHint}</p>
+          Offline mode when no operators online — disabled; chat always available.
 
-                  {faqItems.length > 0 ? (
-                    <div className="q9-chat-widget__faq">
-                      <div className="q9-chat-widget__faq-title">
-                        {t.faqTitle}
-                      </div>
-                      {faqItems.map((item, index) => (
-                        <div key={item.question} className="q9-chat-widget__faq-item">
-                          <button
-                            type="button"
-                            className="q9-chat-widget__faq-q"
-                            aria-expanded={expandedFaq === index}
-                            onClick={() =>
-                              setExpandedFaq((prev) =>
-                                prev === index ? null : index,
-                              )
-                            }
-                          >
-                            {item.question}
-                          </button>
-                          {expandedFaq === index ? (
-                            <div className="q9-chat-widget__faq-a">
-                              {item.answer}
-                            </div>
-                          ) : null}
-                        </div>
-                      ))}
-                    </div>
-                  ) : null}
-
-                  {offlineSent ? (
-                    <div className="q9-chat-widget__status">{t.offlineSent}</div>
-                  ) : (
-                    <form
-                      className="q9-chat-widget__offline-form"
-                      onSubmit={(e) => void handleOfflineSubmit(e)}
-                    >
-                      <label className="q9-chat-widget__field">
-                        {t.name}
-                        <input
-                          value={offlineName}
-                          onChange={(e) => setOfflineName(e.target.value)}
-                          autoComplete="name"
-                        />
-                      </label>
-                      <label className="q9-chat-widget__field">
-                        {t.email}
-                        <input
-                          type="email"
-                          value={offlineEmail}
-                          onChange={(e) => setOfflineEmail(e.target.value)}
-                          autoComplete="email"
-                        />
-                      </label>
-                      <label className="q9-chat-widget__field">
-                        {t.phone}
-                        <input
-                          value={offlinePhone}
-                          onChange={(e) => setOfflinePhone(e.target.value)}
-                          autoComplete="tel"
-                        />
-                      </label>
-                      <label className="q9-chat-widget__field">
-                        {t.offlineMessageLabel}
-                        <textarea
-                          className="q9-chat-widget__input"
-                          value={offlineText}
-                          onChange={(e) => setOfflineText(e.target.value)}
-                          rows={3}
-                          required
-                        />
-                      </label>
-                      <button type="submit" className="q9-chat-widget__send">
-                        {t.offlineSubmit}
-                      </button>
-                    </form>
-                  )}
-                </div>
-              ) : (
-                <>
-                  <div className="q9-chat-widget__messages">
-                    {welcomeMessage ? (
-                      <div className="q9-chat-widget__welcome">
-                        {welcomeMessage}
-                      </div>
-                    ) : null}
-                    {messages.map((message) => (
-                      <div
-                        key={message.id}
-                        className={
-                          isMine(message, session)
-                            ? "q9-chat-widget__message q9-chat-widget__message--mine"
-                            : "q9-chat-widget__message q9-chat-widget__message--theirs"
-                        }
-                      >
-                        {message.text}
-                      </div>
-                    ))}
-                    {operatorTyping ? (
-                      <div className="q9-chat-widget__typing">{t.operatorTyping}</div>
-                    ) : null}
-                    <div ref={messagesEndRef} />
-                  </div>
-                  {error ? (
-                    <div className="q9-chat-widget__status">{error}</div>
-                  ) : null}
-                  <div className="q9-chat-widget__composer">
-                    <textarea
-                      className="q9-chat-widget__input"
-                      value={text}
-                      placeholder={t.placeholder}
-                      rows={1}
-                      onChange={(e) => handleTextChange(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" && !e.shiftKey) {
-                          e.preventDefault();
-                          void handleSend();
-                        }
-                      }}
-                    />
-                    <button
-                      type="button"
-                      className="q9-chat-widget__send"
-                      disabled={!text.trim() || loading}
-                      onClick={() => void handleSend()}
-                    >
-                      {t.send}
-                    </button>
-                  </div>
-                </>
-              )}
-            </>
-          )}
+          {!operatorsOnline ? (
+            <div className="q9-chat-widget__offline">...</div>
+          ) : null}
+          */}
         </div>
       ) : null}
     </div>

@@ -42,6 +42,8 @@ export type WebChatClientOptions = {
 };
 export declare function createVisitorId(): string;
 export declare function getOrCreateVisitorId(storage?: Storage | null): string;
+/** Visitor id from site BFF session cookie (`GET ${apiBase}/session`). */
+export declare function resolveWebChatVisitorId(apiBase: string, fetchImpl?: typeof fetch): Promise<string>;
 export declare class WebChatClient {
     private readonly apiBase;
     private readonly fetchImpl;

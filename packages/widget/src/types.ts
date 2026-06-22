@@ -10,9 +10,15 @@ export interface Q9ChatWidgetProps {
   locale?: WebChatLocale;
   pollIntervalMs?: number;
   statusPollIntervalMs?: number;
-  showPreChatForm?: boolean;
-  /** FAQ shown when operators are offline */
+  /** FAQ shown when operators are offline (disabled in widget UI for now) */
   faqItems?: WebChatFaqItem[];
-  /** Force offline UI (skip online check) */
+  /** Force offline UI (disabled — chat is always available) */
   forceOffline?: boolean;
+  /** Pre-chat name/phone form (disabled in widget UI for now) */
+  showPreChatForm?: boolean;
+  /**
+   * Visitor id from client app session.
+   * If omitted, widget loads `${apiBase}/session` (httpOnly cookie on BFF).
+   */
+  visitorId?: string;
 }

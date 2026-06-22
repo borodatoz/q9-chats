@@ -1,6 +1,6 @@
 {
   "name": "@q9/chats-widget",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Q9 embeddable web chat React widget",
   "type": "module",
   "main": "./dist/index.js",
@@ -20,7 +20,7 @@
   "peerDependencies": {
     "react": ">=18",
     "react-dom": ">=18",
-    "@q9/chats-core": "0.1.0"
+    "@q9/chats-core": "0.1.1"
   },
   "devDependencies": {
     "@q9/chats-core": "workspace:*",

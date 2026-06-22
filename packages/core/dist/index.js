@@ -17,6 +17,19 @@ export function getOrCreateVisitorId(storage) {
     store.setItem(VISITOR_STORAGE_KEY, next);
     return next;
 }
+/** Visitor id from site BFF session cookie (`GET ${apiBase}/session`). */
+export async function resolveWebChatVisitorId(apiBase, fetchImpl = fetch.bind(globalThis)) {
+    const base = apiBase.replace(/\/$/, "");
+    const response = await fetchImpl(`${base}/session`, {
+        credentials: "same-origin",
+    });
+    const json = (await response.json().catch(() => ({})));
+    const visitorId = json.visitor_id?.trim();
+    if (!response.ok || !visitorId || visitorId.length < 8) {
+        throw new Error("web_chat_session_required");
+    }
+    return visitorId;
+}
 export class WebChatClient {
     apiBase;
     fetchImpl;
