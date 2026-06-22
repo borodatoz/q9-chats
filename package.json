@@ -3,6 +3,10 @@
   "private": true,
   "version": "0.1.0",
   "description": "Q9 embeddable web chat widget for client websites",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/borodatoz/q9-chats.git"
+  },
   "packageManager": "pnpm@9.15.0",
   "scripts": {
     "build": "pnpm -r build",

@@ -1,5 +1,7 @@
 # @q9/chats
 
+Public repo: [github.com/borodatoz/q9-chats](https://github.com/borodatoz/q9-chats)
+
 Embeddable web chat widget for Q9 Admin Panel (`communication.*` module).
 
 ## Packages
