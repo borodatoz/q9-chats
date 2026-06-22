@@ -15,16 +15,16 @@
   "files": ["dist", "src/styles.css"],
   "scripts": {
     "build": "tsc -p tsconfig.json",
+    "prepare": "npm run build",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "peerDependencies": {
     "react": ">=18",
-    "react-dom": ">=18"
-  },
-  "dependencies": {
-    "@q9/chats-core": "workspace:*"
+    "react-dom": ">=18",
+    "@q9/chats-core": "0.1.0"
   },
   "devDependencies": {
+    "@q9/chats-core": "workspace:*",
     "@types/react": "^19.0.10",
     "@types/react-dom": "^19.0.4",
     "react": "^19.0.0",
