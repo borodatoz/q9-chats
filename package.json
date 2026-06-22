@@ -1,0 +1,12 @@
+{
+  "name": "q9-chats",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Q9 embeddable web chat widget for client websites",
+  "packageManager": "pnpm@9.15.0",
+  "scripts": {
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck",
+    "dev:example": "pnpm --filter @q9/chats-example-next dev"
+  }
+}
